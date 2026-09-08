@@ -59,6 +59,22 @@ FetchContent_MakeAvailable(whisper)
 message(STATUS "[Kotocord] whisper.cpp — FetchContent (v1.7.5, static)")
 
 # ==========================================
+# 4b. QtNodes (FetchContent — 静态链接; M4 spike 2026-09-08)
+# ==========================================
+# 上游无 release tag, pin master commit; BSD-3-Clause
+# 依赖 Qt Core/Widgets/Gui/OpenGL (本机 6.9.3 已含, 无需 MaintenanceTool 补装)
+# BUILD_SHARED_LIBS 已在上方强制 OFF → 静态链接, 无 DLL 部署
+FetchContent_Declare(
+    qtnodes
+    GIT_REPOSITORY https://github.com/paceholder/nodeeditor.git
+    GIT_TAG        7bbcd3e # master @ 2026-09 (无 release, 见 decisions/log)
+    GIT_SHALLOW    TRUE
+)
+# 子项目模式下 examples/tests 默认关闭 (QT_NODES_DEVELOPER_DEFAULTS=OFF)
+FetchContent_MakeAvailable(qtnodes)
+message(STATUS "[Kotocord] QtNodes — FetchContent (commit 7bbcd3e, static)")
+
+# ==========================================
 # 5. Vosk — 手动管理 (不在 vcpkg 中)
 # ==========================================
 set(VOSK_DIR "${CMAKE_SOURCE_DIR}/third_party/vosk")
@@ -72,6 +88,8 @@ set(UTILS_SOURCES
 
 set(UI_SOURCES
     src/ui/MainWindow.cpp
+    src/ui/NodeEditorView.h        # M4: 节点编辑器视图 (QtNodes)
+    src/ui/NodeEditorView.cpp
     src/ui/MainWindow.h
     src/ui/MainWindow.ui
 )
@@ -177,6 +195,7 @@ endif()
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Widgets
     Qt6::Multimedia
+    QtNodes::QtNodes       # M4: 节点编辑器 (静态; 传递链接 Qt6::OpenGL)
     whisper
     ${VOSK_LIB}
 )
