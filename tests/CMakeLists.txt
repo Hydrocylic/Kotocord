@@ -171,12 +171,35 @@ target_link_libraries(test_sanity PRIVATE
 
 add_test(NAME SanityTest COMMAND $<TARGET_FILE:test_sanity>)
 
+
+# ==========================================
+# Test 7: TextLayoutEngine — 排版计算 (M1 渲染拆分)
+# ==========================================
+# 纯排版引擎, 不依赖 Widgets 窗口
+add_executable(test_text_layout
+    TestTextLayoutEngine.cpp
+    ../src/modules/render/TextLayoutEngine.cpp
+    ../src/modules/render/TextLayoutEngine.h
+)
+
+target_include_directories(test_text_layout PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(test_text_layout PRIVATE
+    Qt6::Test
+    Qt6::Gui
+)
+
+add_test(NAME TextLayoutTests COMMAND $<TARGET_FILE:test_text_layout>)
+
+
 # 确保测试可执行文件在 Windows 上使用控制台子系统
-set_target_properties(test_controller test_kaomoji test_sanity test_funasr test_tts test_prompt_ctx test_domain_dict PROPERTIES
+set_target_properties(test_controller test_kaomoji test_sanity test_funasr test_tts test_prompt_ctx test_domain_dict test_text_layout PROPERTIES
     WIN32_EXECUTABLE FALSE
 )
 
 # Qt6 on Windows: 需要显式设置环境变量才能将输出发送到 stderr
-set_tests_properties(ControllerTests KaomojiTests SanityTest FunASRTranscriberTests TtsTests PromptContextTests DomainDictionaryTests PROPERTIES
+set_tests_properties(ControllerTests KaomojiTests SanityTest FunASRTranscriberTests TtsTests PromptContextTests DomainDictionaryTests TextLayoutTests PROPERTIES
     ENVIRONMENT "QT_ASSUME_STDERR_HAS_CONSOLE=1"
 )

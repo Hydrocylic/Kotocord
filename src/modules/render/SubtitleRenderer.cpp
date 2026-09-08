@@ -38,71 +38,17 @@ void SubtitleRenderer::resizeEvent(QResizeEvent* event) {
 	buildTextPath();//窗口大小被改变时重新排版
 }
 
-// 将重度排版计算从paintevent中剥离
+// 委托排版引擎计算, 将结果转为图形缓存
 void SubtitleRenderer::buildTextPath() {
 	m_textPath = QPainterPath(); // 清空旧缓存
 	if(m_currentFrame.displayText.isEmpty()) return;
 
 	// 定义安全渲染区域 (留出 20 像素的内边距，防止描边被切断)
 	QRect renderBox = rect().adjusted(20,20,-20,-20);
-	int fontSize = 60;// 初始最大字体
-	QFont font("Arial",fontSize,QFont::Black);
-	QStringList lines;
-	int lineHeight = 0;
+	LayoutResult layout = m_layoutEngine.layout(m_currentFrame.displayText, renderBox);
 
-	// 排版循环：动态换行与缩放
-	while(fontSize > 12) {// 字体最小不能小于 12
-		font.setPointSize(fontSize);
-		QFontMetrics fm(font);
-		lineHeight = fm.height();
-		lines.clear();
-		// 智能分词 (Tokenization) 算法
-		QStringList tokens;
-		QString currentToken;
-		for(int i = 0; i < m_currentFrame.displayText.length(); ++i) {
-			QChar c = m_currentFrame.displayText[i];
-			// 如果是空格，或者是中日韩统一表意文字 (CJK)，视为独立的断句点
-			if(c.isSpace() || (c.unicode() >= 0x4E00 && c.unicode() <= 0x9FA5)) {
-				if(!currentToken.isEmpty()) {// 把汉字或空格作为一个独立的 token
-					tokens.append(currentToken);
-					currentToken.clear();
-				}
-				tokens.append(QString(c));
-			} else {// 字母、数字、颜文字符号，全部“粘”在一起作为一个整体 Token
-				currentToken.append(c);
-			}
-		}
-		if(!currentToken.isEmpty()) tokens.append(currentToken);
-
-		QString currentLine = "";// 按 Token 拼装行
-		for(const QString& token : tokens) {
-			QString testLine = currentLine + token;
-			// 如果加上这个 Token 超宽了，并且当前行不是空的，就强制换行
-			if(fm.horizontalAdvance(testLine) > renderBox.width() && !currentLine.isEmpty()) {
-				lines.append(currentLine);
-				currentLine = token.trimmed().isEmpty() ? "" : token;
-			} else {// 如果导致换行的是个空格，下一行就不需要以空格开头了
-				currentLine = testLine;
-			}
-		}
-		lines.append(currentLine); // 把最后一行加进去
-
-		if(lines.size() * lineHeight <= renderBox.height()) {// 检查总高度是否能放进窗口
-			break;// 完美容纳，跳出循环
-		}
-		fontSize -= 2;// 放不下，缩小字体继续算
-	}
-
-	QFontMetrics finalMetrics(font);
-	int totalTextHeight = lines.size() * lineHeight;
-	// 计算 Y 轴整体居中的起始位置
-	int startY = renderBox.top() + (renderBox.height() - totalTextHeight) / 2 + finalMetrics.ascent();
-
-	for(int i = 0; i < lines.size(); ++i) {
-		int lineWidth = finalMetrics.horizontalAdvance(lines[i]);
-		int startX = renderBox.left() + (renderBox.width() - lineWidth) / 2;// 计算每一行 X 轴居中的位置
-		// 将计算好的轮廓写入缓存
-		m_textPath.addText(startX,startY + i * lineHeight,font,lines[i]);
+	for(const LayoutLine& line : layout.lines) {
+		m_textPath.addText(line.x, line.y, layout.font, line.text);
 	}
 }
 
@@ -147,7 +93,7 @@ void SubtitleRenderer::paintEvent(QPaintEvent* event) {
 	painter.drawPath(m_textPath);
 }
 
-// 鼠标拖拽逻辑实现 
+// 鼠标拖拽逻辑实现
 void SubtitleRenderer::mousePressEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
         // Wayland 支持

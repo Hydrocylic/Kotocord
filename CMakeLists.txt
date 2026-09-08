@@ -114,7 +114,9 @@ set(MODULE_SOURCES
     src/modules/llm/KaomojiManager.h
     src/modules/llm/KaomojiManager.cpp
 
-    # Render
+    # Render (M1: 排版计算与呈现拆分)
+    src/modules/render/TextLayoutEngine.h
+    src/modules/render/TextLayoutEngine.cpp
     src/modules/render/SubtitleRenderer.h
     src/modules/render/SubtitleRenderer.cpp
 
