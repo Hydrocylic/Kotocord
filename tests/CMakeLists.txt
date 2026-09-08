@@ -222,12 +222,34 @@ target_link_libraries(test_graph_core PRIVATE
 add_test(NAME GraphCoreTests COMMAND $<TARGET_FILE:test_graph_core>)
 
 
+# ==========================================
+# Test 9: ReminderScheduler — 定时提醒源节点 (M3)
+# ==========================================
+# 纯时间匹配逻辑 + 持久化 + 事件触发 (30s 定时器粒度不直接测)
+add_executable(test_reminder
+    TestReminderScheduler.cpp
+    ../src/modules/source/ReminderScheduler.cpp
+    ../src/modules/source/ReminderScheduler.h
+)
+
+target_include_directories(test_reminder PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(test_reminder PRIVATE
+    Qt6::Test
+    Qt6::Core
+)
+
+add_test(NAME ReminderTests COMMAND $<TARGET_FILE:test_reminder>)
+
+
 # 确保测试可执行文件在 Windows 上使用控制台子系统
-set_target_properties(test_controller test_kaomoji test_sanity test_funasr test_tts test_prompt_ctx test_domain_dict test_text_layout test_graph_core PROPERTIES
+set_target_properties(test_controller test_kaomoji test_sanity test_funasr test_tts test_prompt_ctx test_domain_dict test_text_layout test_graph_core test_reminder PROPERTIES
     WIN32_EXECUTABLE FALSE
 )
 
 # Qt6 on Windows: 需要显式设置环境变量才能将输出发送到 stderr
-set_tests_properties(ControllerTests KaomojiTests SanityTest FunASRTranscriberTests TtsTests PromptContextTests DomainDictionaryTests TextLayoutTests GraphCoreTests PROPERTIES
+set_tests_properties(ControllerTests KaomojiTests SanityTest FunASRTranscriberTests TtsTests PromptContextTests DomainDictionaryTests TextLayoutTests GraphCoreTests ReminderTests PROPERTIES
     ENVIRONMENT "QT_ASSUME_STDERR_HAS_CONSOLE=1"
 )

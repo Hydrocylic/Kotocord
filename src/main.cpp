@@ -17,6 +17,7 @@
 #include "modules/system/SystemResourceMonitor.h"
 #include "modules/tts/PythonEdgeTTS.h" // Phase 3: TTS 引擎 (D9 Python 侧车, 产品引擎)
 #include "modules/tts/TTSPlayer.h"     // Phase 3: 音频播放器
+#include "modules/source/ReminderScheduler.h" // M3: 定时提醒源 (旁路接线, M4 图化)
 
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
@@ -121,6 +122,13 @@ int main(int argc, char* argv[]) {
                      &ttsPlayer, &TTSPlayer::play);
     QObject::connect(&pythonTts, &PythonEdgeTTS::error,
                      [](const QString& msg) { qWarning() << msg; });
+
+    // --- 5b. M3: 定时提醒 → TTS 播报 (旁路接线; M4 时注册为 timer 源节点走图装配) ---
+    ReminderScheduler reminder;
+    reminder.loadFromSettings();
+    QObject::connect(&reminder, &ReminderScheduler::reminderReady,
+                     &pythonTts, &ITextToSpeech::synthesize);
+    reminder.start(); // 未启用/无时刻时内部不启动定时器
 
     // --- 6. UI → 控制器/底层 ---
     // 切换 LLM

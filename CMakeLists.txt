@@ -129,6 +129,10 @@ set(MODULE_SOURCES
     src/modules/tts/PythonEdgeTTS.h      # D9: Python 侧车引擎 (产品引擎)
     src/modules/tts/PythonEdgeTTS.cpp
 
+    # Source (M3: 事件源节点 — 定时提醒)
+    src/modules/source/ReminderScheduler.h
+    src/modules/source/ReminderScheduler.cpp
+
     # System
     src/modules/system/SystemResourceMonitor.h
     src/modules/system/SystemResourceMonitor.cpp
