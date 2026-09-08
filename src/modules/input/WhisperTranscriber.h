@@ -2,6 +2,7 @@
 #define WHISPERTRANSCRIBER_H
 
 #include "IAudioTranscriber.h"
+#include "PromptContext.h"    // Phase 5 L1: initial_prompt 上下文窗口
 #include "../../core/RAII.h"  // UniqueWhisperContext
 #include <QThread>
 #include <QMutex>
@@ -28,6 +29,10 @@ private:
 	// 暂存音频数据的内部缓冲区，积累一段完整的音频供Whisper进行有效推理
 	QByteArray m_audioBuffer;
 	QMutex m_bufferMutex;
+
+	// Phase 5 L1: initial_prompt 上下文窗口 (最近 N 句识别结果)
+	// 免锁依据: m_isInferencing 保证同时只有一个推理线程, 读写仅发生在推理 lambda 内
+	PromptContext m_promptContext;
 
 	// VAD 断句算法所需变量
 	bool m_isSpeaking = false;

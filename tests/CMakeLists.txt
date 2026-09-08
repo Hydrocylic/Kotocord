@@ -115,6 +115,49 @@ add_test(NAME TtsTests COMMAND $<TARGET_FILE:test_tts>)
 
 
 # ==========================================
+# Test 5: PromptContext — Whisper initial_prompt 上下文窗口 (Phase 5 L1)
+# ==========================================
+# 独立小类, 无需加载 whisper 模型即可单测窗口滑动与提示语拼接
+add_executable(test_prompt_ctx
+    TestPromptContext.cpp
+    ../src/modules/input/PromptContext.cpp
+    ../src/modules/input/PromptContext.h
+)
+
+target_include_directories(test_prompt_ctx PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(test_prompt_ctx PRIVATE
+    Qt6::Test
+    Qt6::Core
+)
+
+add_test(NAME PromptContextTests COMMAND $<TARGET_FILE:test_prompt_ctx>)
+
+
+# ==========================================
+# Test 6: DomainDictionary — 热词编辑距离纠偏 (Phase 5 L2)
+# ==========================================
+add_executable(test_domain_dict
+    TestDomainDictionary.cpp
+    ../src/modules/input/DomainDictionary.cpp
+    ../src/modules/input/DomainDictionary.h
+)
+
+target_include_directories(test_domain_dict PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(test_domain_dict PRIVATE
+    Qt6::Test
+    Qt6::Core
+)
+
+add_test(NAME DomainDictionaryTests COMMAND $<TARGET_FILE:test_domain_dict>)
+
+
+# ==========================================
 # Test 0: Sanity — 验证 Qt Test 框架正常
 # ==========================================
 add_executable(test_sanity
@@ -129,11 +172,11 @@ target_link_libraries(test_sanity PRIVATE
 add_test(NAME SanityTest COMMAND $<TARGET_FILE:test_sanity>)
 
 # 确保测试可执行文件在 Windows 上使用控制台子系统
-set_target_properties(test_controller test_kaomoji test_sanity test_funasr test_tts PROPERTIES
+set_target_properties(test_controller test_kaomoji test_sanity test_funasr test_tts test_prompt_ctx test_domain_dict PROPERTIES
     WIN32_EXECUTABLE FALSE
 )
 
 # Qt6 on Windows: 需要显式设置环境变量才能将输出发送到 stderr
-set_tests_properties(ControllerTests KaomojiTests SanityTest FunASRTranscriberTests TtsTests PROPERTIES
+set_tests_properties(ControllerTests KaomojiTests SanityTest FunASRTranscriberTests TtsTests PromptContextTests DomainDictionaryTests PROPERTIES
     ENVIRONMENT "QT_ASSUME_STDERR_HAS_CONSOLE=1"
 )

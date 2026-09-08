@@ -4,6 +4,7 @@
 #include <QDebug>
 #include <QCoreApplication>
 #include <QDir>
+#include <string>
 #include <vector>
 #include "whisper.h"  // whisper_init_from_file_with_params, whisper_full, whisper_full_n_segments 等
 
@@ -43,6 +44,7 @@ bool WhisperTranscriber::start() {
 	m_audioBuffer.clear();
 	m_isSpeaking = false;
 	m_silenceBytes = 0;
+	m_promptContext.clear(); // 新会话新上下文 (stop() 已 join 推理线程, 此处无并发)
 	qDebug() << "[Whisper] 开始接收音频流。";
 	return true;
 }
@@ -154,6 +156,11 @@ void WhisperTranscriber::processBufferInference() {
 		wparams.language = "zh";
 		wparams.print_progress = false;
 
+		// Phase 5 L1: 历史上下文偏置 — 前缀注入解码, 附官方建议的中文提示语
+		const QString promptText = m_promptContext.build();
+		const std::string promptUtf8 = promptText.toStdString();
+		wparams.initial_prompt = promptUtf8.c_str(); // 仅 whisper_full 调用期间需要存活
+
 		// 执行推理计算
 		if(whisper_full(m_ctx.get(),wparams,pcmf32.data(),pcmf32.size()) != 0) {
 			emit errorOccurred("Whisper 后台推理失败！");
@@ -169,6 +176,7 @@ void WhisperTranscriber::processBufferInference() {
 			if(!resultText.isEmpty()) {
 				qDebug() << "[Whisper-Thread] 推理完毕:" << resultText;
 				emit textReady(resultText,true);
+				m_promptContext.push(resultText); // 滑动窗口更新 (与 build 同在推理线程)
 			}
 		}
 

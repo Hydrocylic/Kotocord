@@ -81,7 +81,7 @@ int main(int argc, char* argv[]) {
     // 类型安全的引擎选择: QString key 替代 bool flag
     //   "vosk"    → VoskTranscriber
     //   "whisper" → WhisperTranscriber
-    QString currentAsrKey = "vosk";
+    QString currentAsrKey = "whisper";
     IAudioTranscriber* currentASR = voskEngine.get();
     bool isAsrEnabled = false;
 

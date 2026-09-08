@@ -96,6 +96,8 @@ set(MODULE_SOURCES
     src/modules/input/VoskTranscriber.cpp
     src/modules/input/WhisperTranscriber.h
     src/modules/input/WhisperTranscriber.cpp
+    src/modules/input/PromptContext.h   # Phase 5 L1: initial_prompt 上下文窗口
+    src/modules/input/PromptContext.cpp
 
     # Capture
     src/modules/capture/AudioCapture.h
