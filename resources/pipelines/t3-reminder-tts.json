@@ -1,0 +1,12 @@
+{
+    "_comment": "M3 场景 (定时提醒播报): 无语音输入, 提醒事件直达 TTS; 也可连编排器上屏字幕",
+    "nodes": [
+        { "id": 0, "type": "reminder",      "params": {} },
+        { "id": 1, "type": "tts",           "params": {} },
+        { "id": 2, "type": "audio_out",     "params": {} }
+    ],
+    "edges": [
+        { "id": 0, "fromNode": 0, "fromPort": 0, "toNode": 1, "toPort": 0 },
+        { "id": 1, "fromNode": 1, "fromPort": 0, "toNode": 2, "toPort": 0 }
+    ]
+}

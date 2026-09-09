@@ -45,28 +45,34 @@ MainWindow::MainWindow(AppController* controller, SubtitleRenderer* externalOver
 	} else {
 		m_overlayWidget = std::make_unique<SubtitleRenderer>(nullptr);
 	}
-    overlay()->setAttribute(Qt::WA_QuitOnClose, false);
+    if(overlay()) {
+        overlay()->setAttribute(Qt::WA_QuitOnClose, false);
 
-    //设置字幕初始窗口位置：屏幕中心靠下
-	QScreen* screen = QGuiApplication::primaryScreen();
-	QRect screenGeometry = screen->geometry();
-	int x = (screenGeometry.width() - overlay()->width()) / 2;// X坐标居中
-	int y = screenGeometry.height() - overlay()->height() - 150;// Y坐标屏幕底部往上抬 150 像素
-	overlay()->move(x, y);
-	overlay()->show();
+        //设置字幕初始窗口位置：屏幕中心靠下
+        QScreen* screen = QGuiApplication::primaryScreen();
+        QRect screenGeometry = screen->geometry();
+        int x = (screenGeometry.width() - overlay()->width()) / 2;// X坐标居中
+        int y = screenGeometry.height() - overlay()->height() - 150;// Y坐标屏幕底部往上抬 150 像素
+        overlay()->move(x, y);
+        overlay()->show();
+    }
 
     // ==========================================
     // 信号槽连接：打通 UI 和中枢神经
     // ==========================================
+    // M4b: controller 经 reattach 可换实例, 连接一律走 this + 成员读取 (不捕获旧指针)
 
     // 向Controller发送文本
     connect(ui->btnSend, &QPushButton::clicked, this, [=]() {
+        if(!m_appController) return; // 图中无编排器节点 (如纯提醒模板)
         QString text = ui->inputBox->text();
         m_appController->onManualTextEntered(text);
         ui->inputBox->clear();
         });
     connect(ui->inputBox, &QLineEdit::returnPressed, ui->btnSend, &QPushButton::click);//同步手动输入
-    connect(ui->chkEnableLLM, &QCheckBox::toggled, m_appController, &AppController::setLLMEnabled);//同步LLM启动
+    connect(ui->chkEnableLLM, &QCheckBox::toggled, this, [this](bool enabled) {
+        if(m_appController) m_appController->setLLMEnabled(enabled);
+        });//同步LLM启动
 
 	connect(ui->comboModel,&QComboBox::currentIndexChanged,this,[=](int index) {//处理引擎切换
 		emit llmEngineSwitched(index == 1);
@@ -124,6 +130,16 @@ MainWindow::MainWindow(AppController* controller, SubtitleRenderer* externalOver
 }
 
 MainWindow::~MainWindow() = default;
+
+// M4b: 停机重建后重挂图实例
+void MainWindow::reattach(AppController* controller, SubtitleRenderer* externalOverlay) {
+    m_appController = controller;
+    m_injectedOverlay = externalOverlay;
+    if(externalOverlay) {
+        externalOverlay->setAttribute(Qt::WA_QuitOnClose, false);
+        externalOverlay->show();
+    }
+}
 // unique_ptr 成员自动析构:
 //   1. m_overlayWidget 先析构 (自建模式正常释放; 注入模式所有权在 Pipeline, 这里不动它)
 //   2. ui 后析构 (Ui::MainWindow 释放所有控件)

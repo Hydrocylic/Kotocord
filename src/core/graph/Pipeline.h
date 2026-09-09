@@ -17,6 +17,9 @@ public:
 
     Pipeline(const Pipeline&) = delete;
     Pipeline& operator=(const Pipeline&) = delete;
+    // M4b: 停机重建需要 — 先在新 Pipeline 上编译成功, 再整体换入 (旧实例随之销毁)
+    Pipeline(Pipeline&&) = default;
+    Pipeline& operator=(Pipeline&&) = default;
 
     // Compiler 装配用
     void addModule(std::unique_ptr<QObject> module);

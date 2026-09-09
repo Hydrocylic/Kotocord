@@ -23,6 +23,9 @@ public:
 	MainWindow(AppController* controller, SubtitleRenderer* externalOverlay = nullptr, QWidget* parent = nullptr);
     ~MainWindow();
 
+	// M4b: 停机重建后重挂图实例 (控制器/字幕窗口被 Pipeline 换新)
+	void reattach(AppController* controller, SubtitleRenderer* externalOverlay);
+
 signals:
 	//生成UI点击信号
 	void asrToggleRequested(bool enabled);

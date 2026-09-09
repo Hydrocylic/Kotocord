@@ -5,6 +5,13 @@
 #include <QTimer>
 
 #ifdef Q_OS_WIN
+// M4b: windows.h 的 min/max 宏会污染 QtNodes 头 (std::numeric_limits::max), 全局抑制
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 #endif
 

@@ -1,0 +1,12 @@
+{
+    "_comment": "工作流 1/2/4 (字幕渲染 / 情绪颜文字 / LLM对话渲染): 拓扑相同 — 情绪与颜文字是编排器内部行为",
+    "nodes": [
+        { "id": 0, "type": "voice_input",   "params": { "engine": "whisper" } },
+        { "id": 1, "type": "orchestrator",  "params": { "llmEngine": "mock" } },
+        { "id": 2, "type": "subtitle_render", "params": {} }
+    ],
+    "edges": [
+        { "id": 0, "fromNode": 0, "fromPort": 0, "toNode": 1, "toPort": 0 },
+        { "id": 1, "fromNode": 1, "fromPort": 0, "toNode": 2, "toPort": 0 }
+    ]
+}

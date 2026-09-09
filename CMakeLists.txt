@@ -90,6 +90,8 @@ set(UI_SOURCES
     src/ui/MainWindow.cpp
     src/ui/NodeEditorView.h        # M4: 节点编辑器视图 (QtNodes)
     src/ui/NodeEditorView.cpp
+    src/ui/GraphQtBridge.h         # M4b: 图核心 ↔ QtNodes 桥接
+    src/ui/GraphQtBridge.cpp
     src/ui/MainWindow.h
     src/ui/MainWindow.ui
 )
