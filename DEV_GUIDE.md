@@ -2,6 +2,8 @@
 
 > 本文记录了一台典型"旧设备"开发环境的完整 CMake + IDE 配置，供之后学习和参考。
 > 环境特征：Qt 装在 H 盘（节约 C 盘）、无 vcpkg、VS Code 与 VS2022 双 IDE 并存。
+>
+> ⚠️ **历史文档**（2026-09-09 标注）：文中"双模式 CMakeLists"相关章节为 2026-08 之前的实践实录——`USE_VCPKG_QT`/`USE_VCPKG` 双分支已于 2026-08-12 移除（decisions D-002），whisper.cpp 改为 FetchContent（2026-08），QtNodes 于 2026-09 加入。当前构建方式以 [CLAUDE.md](CLAUDE.md) 与 [BUILD.md](BUILD.md) 为准。
 
 ## 目录
 

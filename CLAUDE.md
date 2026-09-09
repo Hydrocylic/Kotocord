@@ -8,12 +8,12 @@
 
 ## 项目信息
 
-- **项目名称**：Kotocord — 面向 VRChat 无言势及 VTuber 的直播辅助字幕渲染工具
+- **项目名称**：Kotocord — VTuber 中间件（输入→字幕/情绪/TTS/虚拟形象驱动的节点化管线；2026-09-09 定位重写，原"直播字幕渲染工具"）
 - **语言**：C++17
-- **UI 框架**：Qt 6 (Widgets + Multimedia)
+- **UI 框架**：Qt 6 (Widgets + Multimedia + OpenGL[QtNodes])
 - **构建系统**：CMake 3.16+ + MSVC 2022
-- **包管理**: vcpkg（whisper 等其他库）+ 手动 third_party（Vosk）；Qt6 由 MaintenanceTool 安装，环境变量定位
-- **测试框架**：Qt Test
+- **包管理**: FetchContent（whisper.cpp v1.7.5 / QtNodes pin-commit，均静态）+ 手动 third_party（Vosk）；Qt6 由 MaintenanceTool 安装，环境变量定位
+- **测试框架**：Qt Test（11 个测试目标，tests/CMakeLists.txt 注册）
 
 ## 构建
 
@@ -67,15 +67,26 @@ Vosk DLL/导入库与本地模型不进 git，通过打包/拆解脚本迁移：
 
 ## 模块架构
 
+图即配置（2026-09 节点编辑器重构后）：main.cpp 从 `resources/pipelines/*.json` 读图 → `GraphCompiler` 校验装配 → `Pipeline` 持有实例。编辑器（QtNodes）编辑幻影节点，Apply 停机重建。
+
 ```
-main.cpp → AppController（核心调度）
-              ├── AudioCapture / AudioFileSimulator（音频采集）
-              ├── VoskTranscriber / WhisperTranscriber（语音识别，IAudioTranscriber 接口）
-              ├── MockLLMWorker / DeepSeekAPIWorker（LLM，ILanguageModel 接口）
-              ├── KaomojiManager（颜文字管理）
-              ├── SubtitleRenderer（字幕渲染）
-              ├── SystemResourceMonitor（系统资源监控）
-              └── MainWindow（Qt UI）
+main.cpp → GraphCompiler → Pipeline (图装配)
+                │
+   ┌────────────┴────────────────────────────┐
+   │ 源: VoiceInputNode(mic+Vosk/Whisper)     │ ← MainWindow (旁路: 启停/切换/API Key)
+   │     ReminderScheduler(定时提醒)          │
+   │ 处理: OrchestratorNode (复合)            │
+   │   └ AppController(队列/视觉锁)            │
+   │      + Mock/DeepSeek LLM + Kaomoji       │
+   │ 汇/处理: SubtitleRenderer(TextLayout    │
+   │   Engine 纯排版 + 呈现) / PythonEdgeTTS  │
+   │   → TTSPlayer                            │
+   └ SystemResourceMonitor (旁路, 不进图)      │
+
+核心抽象 src/core/graph/: GraphModel(纯数据+JSON) /
+NodeRegistry(元信息+连接器闭包) / GraphCompiler(校验+装配) /
+Pipeline(生命周期, 先断连再逆序销毁) / NodeCatalog(真实节点目录)
+UI 侧 src/ui/: NodeEditorView + GraphQtBridge(双向转换)
 ```
 
 ## 已知测试陷阱
