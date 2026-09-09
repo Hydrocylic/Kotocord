@@ -40,6 +40,14 @@ public:
 	static QString getApiKeyFilePath() {
 		return QCoreApplication::applicationDirPath() + "/apikey.txt";
 	}
+
+	// 管线模板目录 (M4: 预置图 JSON; 用户可覆写目录为后续线头 — 开放问题 O-3 收敛: 先 resources 内置)
+	static QString getPipelineDir() {
+		return getResourcesDir() + "/pipelines";
+	}
+	static QString getDefaultPipelinePath() {
+		return getPipelineDir() + "/default.json";
+	}
 };
 
 #endif // APPPATHS_H

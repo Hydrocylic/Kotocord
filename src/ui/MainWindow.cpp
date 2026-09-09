@@ -31,25 +31,29 @@ QString deobfuscateKey(const QString& cipherText) {
     return QString(data);
 }
 
-MainWindow::MainWindow(AppController* controller,QWidget* parent)
+MainWindow::MainWindow(AppController* controller, SubtitleRenderer* externalOverlay, QWidget* parent)
     : QMainWindow(parent)
     , ui(std::make_unique<Ui::MainWindow>())
-	,m_appController(controller)
+    ,m_appController(controller)
 {
     ui->setupUi(this);
     qRegisterMetaType<SubtitleFrame>("SubtitleFrame");//传达事件循环，说明自定义结构体
 
 	//UI内部窗口管理
-    m_overlayWidget = std::make_unique<SubtitleRenderer>(nullptr);
-    m_overlayWidget->setAttribute(Qt::WA_QuitOnClose, false);
+	if(externalOverlay) {
+		m_injectedOverlay = externalOverlay; // M4a: 图装配节点, 所有权在 Pipeline, 这里只引用
+	} else {
+		m_overlayWidget = std::make_unique<SubtitleRenderer>(nullptr);
+	}
+    overlay()->setAttribute(Qt::WA_QuitOnClose, false);
 
     //设置字幕初始窗口位置：屏幕中心靠下
-    QScreen* screen = QGuiApplication::primaryScreen();
-    QRect screenGeometry = screen->geometry();
-    int x = (screenGeometry.width() - m_overlayWidget->width()) / 2;// X坐标居中
-    int y = screenGeometry.height() - m_overlayWidget->height() - 150;// Y坐标屏幕底部往上抬 150 像素
-    m_overlayWidget->move(x, y);
-    m_overlayWidget->show();
+	QScreen* screen = QGuiApplication::primaryScreen();
+	QRect screenGeometry = screen->geometry();
+	int x = (screenGeometry.width() - overlay()->width()) / 2;// X坐标居中
+	int y = screenGeometry.height() - overlay()->height() - 150;// Y坐标屏幕底部往上抬 150 像素
+	overlay()->move(x, y);
+	overlay()->show();
 
     // ==========================================
     // 信号槽连接：打通 UI 和中枢神经
@@ -121,13 +125,13 @@ MainWindow::MainWindow(AppController* controller,QWidget* parent)
 
 MainWindow::~MainWindow() = default;
 // unique_ptr 成员自动析构:
-//   1. m_overlayWidget 先析构 (SubtitleRenderer 顶层窗口关闭)
+//   1. m_overlayWidget 先析构 (自建模式正常释放; 注入模式所有权在 Pipeline, 这里不动它)
 //   2. ui 后析构 (Ui::MainWindow 释放所有控件)
 // 析构顺序 = 声明顺序的逆序, 编译器保证
 
 // 字幕准备完成
 void MainWindow::onSubtitleReady(const SubtitleFrame& frame) {
-	if(m_overlayWidget) m_overlayWidget->updateFrame(frame);
+	if(overlay()) overlay()->updateFrame(frame);
 }
 
 // 刷新cpu使用率

@@ -4,6 +4,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QElapsedTimer>
+#include <QTimer>
 #include <QDebug>
 
 DeepSeekAPIWorker::DeepSeekAPIWorker(QObject* parent)

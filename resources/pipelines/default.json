@@ -1,0 +1,17 @@
+{
+    "nodes": [
+        { "id": 0, "type": "voice_input",   "params": { "engine": "whisper" } },
+        { "id": 1, "type": "orchestrator",  "params": { "llmEngine": "mock" } },
+        { "id": 2, "type": "subtitle_render", "params": {} },
+        { "id": 3, "type": "tts",           "params": {} },
+        { "id": 4, "type": "audio_out",     "params": {} },
+        { "id": 5, "type": "reminder",      "params": {} }
+    ],
+    "edges": [
+        { "id": 0, "fromNode": 0, "fromPort": 0, "toNode": 1, "toPort": 0 },
+        { "id": 1, "fromNode": 1, "fromPort": 0, "toNode": 2, "toPort": 0 },
+        { "id": 2, "fromNode": 1, "fromPort": 1, "toNode": 3, "toPort": 0 },
+        { "id": 3, "fromNode": 3, "fromPort": 0, "toNode": 4, "toPort": 0 },
+        { "id": 4, "fromNode": 5, "fromPort": 0, "toNode": 3, "toPort": 0 }
+    ]
+}

@@ -2,175 +2,97 @@
 #include <QDir>
 #include <QCoreApplication>
 #include <QFile>
+#include <QJsonDocument>
 #include <QTextStream>
+#include <QDebug>
 
 #include "ui/MainWindow.h"
 #include "utils/AppPaths.h"
-#include "core/AppController.h"
-#include "core/Factory.h"            // GenericFactory — 泛型注册工厂
-#include "modules/input/VoskTranscriber.h"
-#include "modules/input/WhisperTranscriber.h"
-#include "modules/capture/AudioCapture.h"
-#include "modules/llm/MockLLMWorker.h"
-#include "modules/llm/DeepSeekAPIWorker.h"
-#include "modules/llm/KaomojiManager.h"
+#include "core/graph/GraphModel.h"
+#include "core/graph/GraphCompiler.h"
+#include "core/graph/Pipeline.h"
+#include "core/graph/NodeCatalog.h"     // M4a: 真实节点目录
+#include "modules/source/VoiceInputNode.h"
+#include "modules/source/ReminderScheduler.h"
+#include "modules/orchestrator/OrchestratorNode.h"
+#include "modules/render/SubtitleRenderer.h"
 #include "modules/system/SystemResourceMonitor.h"
-#include "modules/tts/PythonEdgeTTS.h" // Phase 3: TTS 引擎 (D9 Python 侧车, 产品引擎)
-#include "modules/tts/TTSPlayer.h"     // Phase 3: 音频播放器
-#include "modules/source/ReminderScheduler.h" // M3: 定时提醒源 (旁路接线, M4 图化)
 
+// M4a: 装配从硬编码连线改为 图(default.json) → Compiler → Pipeline
+// 旁路 (非数据流, 不进图): SystemResourceMonitor → UI 监控; MainWindow 内部控件交互
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
 
     // ==========================================
-    // 第一步：使用工厂模式创建所有组件
+    // 第一步：装配管线 (图即配置 — 决策 D-003)
     // ==========================================
+    NodeRegistry catalog = NodeCatalog::build();
 
-    // --- ASR 引擎工厂 ---
-    GenericFactory<IAudioTranscriber> asrFactory;
-    asrFactory.regist<VoskTranscriber>("vosk");
-    asrFactory.regist<WhisperTranscriber>("whisper");
-
-    auto voskEngine   = asrFactory.create("vosk");
-    auto whisperEngine = asrFactory.create("whisper");
-    // static_cast 安全: create("vosk") 一定返回 VoskTranscriber
-    auto* voskRaw    = static_cast<VoskTranscriber*>(voskEngine.get());
-    auto* whisperRaw = static_cast<WhisperTranscriber*>(whisperEngine.get());
-
-    // --- LLM 引擎工厂 ---
-    GenericFactory<ILanguageModel> llmFactory;
-    llmFactory.regist<MockLLMWorker>("mock");
-    llmFactory.regist<DeepSeekAPIWorker>("deepseek");
-
-    auto mockLLM     = llmFactory.create("mock");
-    auto deepSeekLLM = llmFactory.create("deepseek");
-    auto* deepSeekRaw = static_cast<DeepSeekAPIWorker*>(deepSeekLLM.get());
-
-    // --- 基础设施组件 (不需要工厂 — 各只有一个实例) ---
-    AppController controller;
-    AudioCapture micCapture;
-    KaomojiManager kaomojiManager;
-    SystemResourceMonitor sysMonitor;
-    PythonEdgeTTS pythonTts; // D9: TTS 产品引擎 (QProcess → venv edge-tts)
-    TTSPlayer ttsPlayer;     // Phase 3: 播放器
-
-    // 尝试从 apikey.txt 加载 API Key
-    QString apiKeyPath = AppPaths::getApiKeyFilePath();
-    if (QFile::exists(apiKeyPath)) {
-        QFile keyFile(apiKeyPath);
-        if (keyFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            QString fileKey = QString::fromUtf8(keyFile.readAll()).trimmed();
-            if (!fileKey.isEmpty()) {
-                deepSeekRaw->setApiConfig(fileKey);
-                qDebug() << "[Main] API Key 已从文件加载:" << apiKeyPath;
-            }
-            keyFile.close();
-        }
+    GraphModel graph;
+    QString pipelinePath = AppPaths::getDefaultPipelinePath();
+    QFile pipelineFile(pipelinePath);
+    if(pipelineFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        graph = GraphModel::fromJson(QJsonDocument::fromJson(pipelineFile.readAll()).object());
+        pipelineFile.close();
+    } else {
+        qWarning() << "[Main] 管线模板缺失, 回退空图:" << pipelinePath;
     }
 
-    MainWindow window(&controller);
+    Pipeline pipeline;
+    CompileResult compiled = GraphCompiler::compile(graph, catalog, pipeline);
+    if(!compiled.ok) {
+        qCritical() << "[Main] 管线编译失败:" << compiled.errors;
+        return 1;
+    }
+    qInfo() << "[Main] 管线装配完成:" << pipeline.moduleCount() << "个节点,"
+            << pipeline.connectionCount() << "条连接";
+
+    // 图实例 (节点 id 对应 default.json)
+    auto* voice  = qobject_cast<VoiceInputNode*>(compiled.instances.value(0));
+    auto* orch   = qobject_cast<OrchestratorNode*>(compiled.instances.value(1));
+    auto* render = qobject_cast<SubtitleRenderer*>(compiled.instances.value(2));
+    auto* reminder = qobject_cast<ReminderScheduler*>(compiled.instances.value(5));
+    Q_ASSERT(voice && orch && render); // 模板被改坏时快速失败
 
     // ==========================================
-    // 第二步：依赖注入与初始配置
+    // 第二步：UI 与运行控制
     // ==========================================
+    SystemResourceMonitor sysMonitor; // 旁路: 系统监控不进数据流图
+    MainWindow window(orch->controller(), render);
 
-    kaomojiManager.loadFromFile(AppPaths::getKaomojiPath());
-    controller.setKaomojiManager(&kaomojiManager);
-    controller.setLanguageModel(mockLLM.get()); // 默认使用 Mock LLM
-    controller.setTTS(&pythonTts); // Phase 3: 注入 TTS 引擎 (决策 D3/D4: 默认开启)
+    // --- UI 运行控制 → 图节点 ---
+    QObject::connect(&window, &MainWindow::asrToggleRequested,
+                     voice, &VoiceInputNode::setRunning);
+    QObject::connect(&window, &MainWindow::asrEngineSwitched,
+                     voice, &VoiceInputNode::setEngine);
+    QObject::connect(&window, &MainWindow::llmEngineSwitched,
+                     orch, &OrchestratorNode::setLlmEngine);
+    QObject::connect(&window, &MainWindow::apiKeyChanged,
+                     orch, &OrchestratorNode::setApiKey);
 
-    // 类型安全的引擎选择: QString key 替代 bool flag
-    //   "vosk"    → VoskTranscriber
-    //   "whisper" → WhisperTranscriber
-    QString currentAsrKey = "whisper";
-    IAudioTranscriber* currentASR = voskEngine.get();
-    bool isAsrEnabled = false;
-
-    // ==========================================
-    // 第三步：信号-槽连线
-    // ==========================================
-
-    // --- 1. 控制器 → UI ---
-    QObject::connect(&controller, &AppController::subtitleReadyForRender,
-                     &window, &MainWindow::onSubtitleReady);
-
-    // --- 2. 系统/LLM → UI 监控看板 ---
+    // --- 旁路: 监控/看板 → UI ---
     QObject::connect(&sysMonitor, &SystemResourceMonitor::resourceUpdated,
                      &window, &MainWindow::updateCpuMem);
-
-    QObject::connect(mockLLM.get(), &ILanguageModel::textProcessed,
+    QObject::connect(orch, &OrchestratorNode::frameProcessed,
                      &window, &MainWindow::updateEmotionLabel);
-    QObject::connect(deepSeekLLM.get(), &ILanguageModel::textProcessed,
-                     &window, &MainWindow::updateEmotionLabel);
-    QObject::connect(deepSeekLLM.get(), &ILanguageModel::performanceMetricsReported,
+    QObject::connect(orch, &OrchestratorNode::metricsReported,
                      &window, &MainWindow::updateLatencyAndTokens);
 
-    // --- 3. 麦克风 → ASR 引擎 ---
-    QObject::connect(&micCapture, &AudioCapture::audioDataReady,
-                     voskRaw, &VoskTranscriber::onAudioDataReady);
-    QObject::connect(&micCapture, &AudioCapture::audioDataReady,
-                     whisperRaw, &WhisperTranscriber::onAudioDataReady);
-
-    // --- 4. ASR 引擎 → 控制器 ---
-    QObject::connect(voskEngine.get(), &IAudioTranscriber::textReady,
-                     &controller, &AppController::onASRTextReady);
-    QObject::connect(whisperEngine.get(), &IAudioTranscriber::textReady,
-                     &controller, &AppController::onASRTextReady);
-
-    // --- 5. TTS 引擎 → 播放器 (Phase 3) ---
-    QObject::connect(&pythonTts, &PythonEdgeTTS::audioReady,
-                     &ttsPlayer, &TTSPlayer::play);
-    QObject::connect(&pythonTts, &PythonEdgeTTS::error,
-                     [](const QString& msg) { qWarning() << msg; });
-
-    // --- 5b. M3: 定时提醒 → TTS 播报 (旁路接线; M4 时注册为 timer 源节点走图装配) ---
-    ReminderScheduler reminder;
-    reminder.loadFromSettings();
-    QObject::connect(&reminder, &ReminderScheduler::reminderReady,
-                     &pythonTts, &ITextToSpeech::synthesize);
-    reminder.start(); // 未启用/无时刻时内部不启动定时器
-
-    // --- 6. UI → 控制器/底层 ---
-    // 切换 LLM
-    QObject::connect(&window, &MainWindow::llmEngineSwitched, [&](bool isDeepSeek) {
-        controller.setLanguageModel(
-            isDeepSeek ? static_cast<ILanguageModel*>(deepSeekLLM.get())
-                       : static_cast<ILanguageModel*>(mockLLM.get()));
-    });
-
-    // 录入 API Key
-    QObject::connect(&window, &MainWindow::apiKeyChanged, [&](const QString& key) {
-        deepSeekRaw->setApiConfig(key);
-    });
-
-    // 启停语音识别
-    QObject::connect(&window, &MainWindow::asrToggleRequested, [&](bool enabled) {
-        isAsrEnabled = enabled;
-        if (enabled) {
-            if (currentASR->start()) micCapture.start();
-        } else {
-            micCapture.stop();
-            currentASR->stop();
-        }
-    });
-
-    // 切换 ASR 引擎 — 用 currentAsrKey 替代 bool isWhisper
-    QObject::connect(&window, &MainWindow::asrEngineSwitched, [&](bool isWhisper) {
-        currentASR->stop();
-        currentAsrKey = isWhisper ? "whisper" : "vosk";
-        currentASR = isWhisper
-            ? static_cast<IAudioTranscriber*>(whisperEngine.get())
-            : static_cast<IAudioTranscriber*>(voskEngine.get());
-        if (isAsrEnabled) {
-            currentASR->start();
-        }
-    });
+    // --- M3: 定时提醒 (图内 reminder 节点, 事件经图边到 TTS) ---
+    if(reminder) {
+        reminder->loadFromSettings();
+        reminder->start();
+    }
 
     // ==========================================
-    // 第四步：启动
+    // 第三步：启动
     // ==========================================
     sysMonitor.start(1000);
     window.show();
 
-    return app.exec();
+    int rc = app.exec();
+
+    // Pipeline 在栈上, 析构时先断连再逆序销毁 (汇先于源)
+    Q_UNUSED(rc);
+    return rc;
 }

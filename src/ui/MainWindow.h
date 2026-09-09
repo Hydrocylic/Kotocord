@@ -19,7 +19,8 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-	MainWindow(AppController* controller,QWidget* parent = nullptr);//传入外部AppController
+	// externalOverlay: 外部注入的字幕窗口 (M4a: 图装配的 subtitle_render 节点实例); 传 nullptr 时自建 (旧路径)
+	MainWindow(AppController* controller, SubtitleRenderer* externalOverlay = nullptr, QWidget* parent = nullptr);
     ~MainWindow();
 
 signals:
@@ -40,7 +41,11 @@ public slots:
 
 private:
     std::unique_ptr<Ui::MainWindow> ui;
-    std::unique_ptr<SubtitleRenderer> m_overlayWidget; // 独立顶层窗口, 无 QObject parent, unique_ptr 管理
+    std::unique_ptr<SubtitleRenderer> m_overlayWidget; // 自建模式 (旧路径)
+    // M4a: 外部注入 overlay (图装配的 subtitle_render 节点) — 所有权在 Pipeline
+    SubtitleRenderer* m_injectedOverlay = nullptr;
     AppController* m_appController;
+
+    SubtitleRenderer* overlay() const { return m_injectedOverlay ? m_injectedOverlay : m_overlayWidget.get(); }
 };
 #endif // MAINWINDOW_H

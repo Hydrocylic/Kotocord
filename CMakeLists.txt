@@ -150,6 +150,22 @@ set(MODULE_SOURCES
     # Source (M3: 事件源节点 — 定时提醒)
     src/modules/source/ReminderScheduler.h
     src/modules/source/ReminderScheduler.cpp
+    src/modules/source/VoiceInputNode.h      # M4a: 语音输入复合节点
+    src/modules/source/VoiceInputNode.cpp
+    src/modules/orchestrator/OrchestratorNode.h # M4a: 编排器复合节点
+    src/modules/orchestrator/OrchestratorNode.cpp
+
+    # Graph core (M2/M4a: 图→编译→管线)
+    src/core/graph/GraphModel.h
+    src/core/graph/GraphModel.cpp
+    src/core/graph/NodeRegistry.h
+    src/core/graph/NodeRegistry.cpp
+    src/core/graph/GraphCompiler.h
+    src/core/graph/GraphCompiler.cpp
+    src/core/graph/Pipeline.h
+    src/core/graph/Pipeline.cpp
+    src/core/graph/NodeCatalog.h             # M4a: 真实节点目录
+    src/core/graph/NodeCatalog.cpp
 
     # System
     src/modules/system/SystemResourceMonitor.h

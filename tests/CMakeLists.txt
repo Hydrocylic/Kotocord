@@ -244,12 +244,83 @@ target_link_libraries(test_reminder PRIVATE
 add_test(NAME ReminderTests COMMAND $<TARGET_FILE:test_reminder>)
 
 
+# ==========================================
+# Test 10: PipelineCatalog — 真实节点目录 + default.json 装配 (M4a)
+# ==========================================
+# SubtitleRenderer 是 QWidget → QApplication; 音频/TTS 后端不真跑
+add_executable(test_pipeline_catalog
+    TestPipelineCatalog.cpp
+    ../src/core/graph/GraphModel.cpp
+    ../src/core/graph/NodeRegistry.cpp
+    ../src/core/graph/GraphCompiler.cpp
+    ../src/core/graph/Pipeline.cpp
+    ../src/core/graph/NodeCatalog.cpp
+    ../src/core/graph/NodeCatalog.h
+    ../src/core/AppController.cpp
+    ../src/core/AppController.h
+    ../src/core/DataTypes.h
+    ../src/modules/source/VoiceInputNode.cpp
+    ../src/modules/source/VoiceInputNode.h
+    ../src/modules/source/ReminderScheduler.cpp
+    ../src/modules/source/ReminderScheduler.h
+    ../src/modules/orchestrator/OrchestratorNode.cpp
+    ../src/modules/orchestrator/OrchestratorNode.h
+    ../src/modules/render/SubtitleRenderer.cpp
+    ../src/modules/render/SubtitleRenderer.h
+    ../src/modules/render/TextLayoutEngine.cpp
+    ../src/modules/render/TextLayoutEngine.h
+    ../src/modules/llm/ILanguageModel.h
+    ../src/modules/llm/MockLLMWorker.cpp
+    ../src/modules/llm/MockLLMWorker.h
+    ../src/modules/llm/DeepSeekAPIWorker.cpp
+    ../src/modules/llm/DeepSeekAPIWorker.h
+    ../src/modules/llm/KaomojiManager.cpp
+    ../src/modules/llm/KaomojiManager.h
+    ../src/modules/tts/PythonEdgeTTS.cpp
+    ../src/modules/tts/PythonEdgeTTS.h
+    ../src/modules/tts/ITextToSpeech.h        # 为 MOC (接口信号)
+    ../src/modules/tts/TTSPlayer.cpp
+    ../src/modules/tts/TTSPlayer.h
+    ../src/modules/input/PromptContext.cpp     # WhisperTranscriber 依赖 (Phase 5 L1)
+    ../src/modules/input/PromptContext.h
+    ../src/modules/input/VoskTranscriber.cpp
+    ../src/modules/input/VoskTranscriber.h
+    ../src/modules/input/WhisperTranscriber.cpp
+    ../src/modules/input/WhisperTranscriber.h
+    ../src/modules/input/IAudioTranscriber.h
+    ../src/modules/capture/AudioCapture.cpp
+    ../src/modules/capture/AudioCapture.h
+    ../src/utils/AppPaths.h
+)
+
+target_include_directories(test_pipeline_catalog PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${VOSK_DIR}/include                           # Vosk (VoiceInputNode → VoskTranscriber)
+    ${whisper_SOURCE_DIR}                         # whisper.cpp (VoiceInputNode → WhisperTranscriber)
+)
+
+target_compile_definitions(test_pipeline_catalog PRIVATE
+    KOTO_PIPELINES_DIR="${CMAKE_SOURCE_DIR}/resources/pipelines"
+)
+
+target_link_libraries(test_pipeline_catalog PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Qt6::Multimedia
+    Qt6::Network
+    whisper
+    ${VOSK_LIB}
+)
+
+add_test(NAME PipelineCatalogTests COMMAND $<TARGET_FILE:test_pipeline_catalog>)
+
+
 # 确保测试可执行文件在 Windows 上使用控制台子系统
-set_target_properties(test_controller test_kaomoji test_sanity test_funasr test_tts test_prompt_ctx test_domain_dict test_text_layout test_graph_core test_reminder PROPERTIES
+set_target_properties(test_controller test_kaomoji test_sanity test_funasr test_tts test_prompt_ctx test_domain_dict test_text_layout test_graph_core test_reminder test_pipeline_catalog PROPERTIES
     WIN32_EXECUTABLE FALSE
 )
 
 # Qt6 on Windows: 需要显式设置环境变量才能将输出发送到 stderr
-set_tests_properties(ControllerTests KaomojiTests SanityTest FunASRTranscriberTests TtsTests PromptContextTests DomainDictionaryTests TextLayoutTests GraphCoreTests ReminderTests PROPERTIES
+set_tests_properties(ControllerTests KaomojiTests SanityTest FunASRTranscriberTests TtsTests PromptContextTests DomainDictionaryTests TextLayoutTests GraphCoreTests ReminderTests PipelineCatalogTests PROPERTIES
     ENVIRONMENT "QT_ASSUME_STDERR_HAS_CONSOLE=1"
 )

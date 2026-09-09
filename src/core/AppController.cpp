@@ -107,6 +107,7 @@ void AppController::onLLMTextProcessed(const SubtitleFrame& frame) {
 	}
 	//qDebug() << "[AppController] 附魔完成，准备刷新屏幕:" << finalFrame.displayText;
 	emit subtitleReadyForRender(finalFrame);//发射渲染信号
+	emit ttsReadyForSpeech(finalFrame.displayText);// M4a: 图边专用 (仅处理完的帧才播报, 与旧 m_tts 调用点等价)
 	if (m_tts) {
 		m_tts->synthesize(finalFrame.displayText);// Phase 3: LLM 处理后触发 TTS (决策 D3, 打断语义 D2)
 	}

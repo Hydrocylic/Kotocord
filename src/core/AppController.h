@@ -27,6 +27,7 @@ public:
 
 signals:
 	void subtitleReadyForRender(const SubtitleFrame& frame);//文本渲染帧已准备好
+	void ttsReadyForSpeech(const QString& text);// M4a: 待播报整句 (仅 LLM 处理完毕的帧, 区别于渲染帧)
 
 public slots:
     void onManualTextEntered(const QString& text);//接收手动文本输入
